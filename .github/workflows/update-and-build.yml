@@ -1,0 +1,124 @@
+name: Update from A and Build YouTube Plus
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "URL to the decrypted IPA file"
+        required: true
+        type: string
+      tweak_version:
+        description: "YTLite release version"
+        required: true
+        default: "6.0"
+        type: string
+      display_name:
+        description: "App name"
+        required: true
+        default: "YouTube"
+        type: string
+      bundle_id:
+        description: "Bundle ID"
+        required: true
+        default: "com.google.ios.youtube"
+        type: string
+      enable_youpip:
+        description: "Integrate YouPiP"
+        type: boolean
+        default: false
+      enable_ytuhd:
+        description: "Integrate YTUHD"
+        type: boolean
+        default: false
+      enable_yq:
+        description: "Integrate YouQuality"
+        type: boolean
+        default: false
+      enable_ryd:
+        description: "Integrate Return YouTube Dislikes"
+        type: boolean
+        default: false
+      enable_ytabc:
+        description: "Integrate YTABConfig"
+        type: boolean
+        default: false
+      enable_demc:
+        description: "Integrate DontEatMyContent"
+        type: boolean
+        default: false
+      enable_localization:
+        description: "Update localization files"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-and-build-main
+  cancel-in-progress: false
+
+jobs:
+  update-and-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify token is configured
+        env:
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+        run: |
+          if [ -z "$SYNC_TOKEN" ]; then
+            echo "::error::Set the UPSTREAM_SYNC_TOKEN repository secret first."
+            exit 1
+          fi
+
+      - name: Checkout C main with workflow-edit token
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          persist-credentials: true
+
+      - name: Merge latest changes from A
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/dayanch96/YTLite.git
+          git fetch upstream main
+          git merge --no-edit upstream/main
+          git push origin HEAD:main
+          echo "Latest upstream changes synced successfully."
+
+      - name: Start the updated IPA build
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          IPA_URL: ${{ inputs.ipa_url }}
+          TWEAK_VERSION: ${{ inputs.tweak_version }}
+          DISPLAY_NAME: ${{ inputs.display_name }}
+          BUNDLE_ID: ${{ inputs.bundle_id }}
+          ENABLE_YOUPIP: ${{ inputs.enable_youpip }}
+          ENABLE_YTUHD: ${{ inputs.enable_ytuhd }}
+          ENABLE_YQ: ${{ inputs.enable_yq }}
+          ENABLE_RYD: ${{ inputs.enable_ryd }}
+          ENABLE_YTABC: ${{ inputs.enable_ytabc }}
+          ENABLE_DEMC: ${{ inputs.enable_demc }}
+          ENABLE_LOCALIZATION: ${{ inputs.enable_localization }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run main.yml --ref main \
+            -f "ipa_url=$IPA_URL" \
+            -f "tweak_version=$TWEAK_VERSION" \
+            -f "display_name=$DISPLAY_NAME" \
+            -f "bundle_id=$BUNDLE_ID" \
+            -f "enable_youpip=$ENABLE_YOUPIP" \
+            -f "enable_ytuhd=$ENABLE_YTUHD" \
+            -f "enable_yq=$ENABLE_YQ" \
+            -f "enable_ryd=$ENABLE_RYD" \
+            -f "enable_ytabc=$ENABLE_YTABC" \
+            -f "enable_demc=$ENABLE_DEMC" \
+            -f "enable_localization=$ENABLE_LOCALIZATION"
+          echo "Build requested: check Actions -> Create YouTube Plus app."
