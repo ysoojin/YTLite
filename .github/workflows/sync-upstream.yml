@@ -1,1 +1,30 @@
 
+name: Sync changes from dayanch96/YTLite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out C repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Merge latest changes from A
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/dayanch96/YTLite.git
+          git fetch upstream main
+          git merge --no-edit upstream/main
+          git push origin HEAD:main
